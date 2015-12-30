@@ -1,7 +1,7 @@
 # Tenerife
 Data and analysis script (MatLab) for a university project linking geodiversity to endemic vascular plant diversity.
 
-Project:
+# Project
 Our methodology consisted of a fieldwork and a GIS part, followed by a statistical data analysis. 
 During GIS work, prior to fieldwork, we prepared data layers of thematic data available (soil map, geological map), and chose our fieldwork locations to ensure a good cover of the geological and topographical variability in our specific area. We derived land surface parameters from a DTM. Land surface parameters are terrain model derivatives such as slope, curvature, and additional measures such as openness of the topography. 
 
@@ -13,10 +13,10 @@ As mentioned earlier, we used a stratified approach, identifying main geomorphol
 
 Our methodology of selecting several field plots has to be upscaled of course. We propose that the upscaling is set up in a stratified and hierarchical way. By selecting three plots in our greater area, we could upscale our methods to our greater area, which was step 1. And we propose that first, several additional plots are selected in the Corona Forestal first, with different altitudes, aspects, geology, etc, so that our methodology can first be upscaled to the entire corona forestall. Then, other vegetation zones of Tenerife can be analyzed in a similar way and finally the methodology can be upscaled to the whole of Tenerife, and perhaps even other Canary Islands. 
 
-Data File:
+# Data File
 Contains data for each fishnet cell generated in ArcMap in csv format, semicolor separator.
 
-*DEM (Altitude).	Land Surface Parameter (LSP)	-	Centro Nacional de Información Geográfica (2009).	5m resolution
+*DEM* (Altitude).	Land Surface Parameter (LSP)	-	Centro Nacional de Información Geográfica (2009).	5m resolution
 *Slope	LSP	- The maximum rate of change with neighbouring cells [degrees]	dervied from DEM. Calculated with ArcGIS Slope Tool from Spatial Analyst toolbox. Average and standar deviation per fishnet cell.
 *Aspect.	LSP. - 	The compass direction of the neighbouring cell with the maximum rate of change with input cell [degrees] dervied from DEM. Calculated with ArcGIS Aspect Tool from Spatial Analyst toolbox. Average and standar deviation per fishnet cell.
 *Curvature.	LSP.	- Second derivative of input raster within neighbouring cells [-] derived from	DEM. Calculated with ArcGIS Slope Tool from Spatial Analyst toolbox. Average and standar deviation per fishnet cell.
