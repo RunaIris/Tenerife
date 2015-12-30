@@ -1,0 +1,293 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Data Analysis of Tenerife Project (2015)                              %%
+%% Ben van Meeteren, Joost Dalmijn, Rúna Magnússon                       %%
+%% October 2015                                                          %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% This script loads data exported from the ArcGIS attribute table of      %
+% allfishnetpoints, containing data for 30 fishnet cells of 200x200m,     %
+% located on the slope of the Las Canadas Complex, Tenerife.              %
+% Based on various remote-sensing based and field-measured inputs, species%
+% count is predicted using a Geodiversity Index.                          %
+% This is tried in various ways including scaling, ranking and averaging  %
+% of GD-input data and multiple linear regression.                        %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+close all
+clc
+clear all
+
+% load input data
+% input data was exported from ArcMap attribute table, edited to csv with
+% decimal point in excel
+[ID, ASP, ASPSTD, CURV, CURVSTD, SOL, SOLSTD, SLOPE, SLOPESTD, DEM, ...
+    DEMSTD, FLOW, FLOWSTD, TO, TOSTD, SPECIES, UNITS, GEO, GEOMORPH, ...
+    GEOCOUNT, GEOMORPHCOUNT] = textread('Data_Analysis\final_data.csv', ...
+    '%u%f%f%f%f%f%f%f%f%f%f%f%f%f%f%u%u%s%s%u%u', 'delimiter', ';', ...
+    'headerlines', 1);
+
+DATA1 = dataset(ID, ASP, ASPSTD, CURV, CURVSTD, SOL, SOLSTD, SLOPE, ...
+    SLOPESTD, DEM, DEMSTD, FLOW, FLOWSTD, TO, TOSTD, SPECIES, UNITS, ...
+    GEO, GEOMORPH, GEOCOUNT, GEOMORPHCOUNT)
+
+% remove plots that lacked species data
+DATA1 = DATA1(DATA1.SPECIES>0,:);
+
+% split data into validation plots and training plots
+VALI = DATA1([3,10,26],:); % ONE IN EACH AREA
+DATA = DATA1([1:2,4:9,11:25,27,28],:);
+
+
+%% exploratory statistics
+
+%identify high correlations with species number / GVU number
+names = {'ID', 'ASP', 'ASPSTD', 'CURV', 'CURVSTD', 'SOL', 'SOLSTD', ...
+    'SLOPE', 'SLOPESTD', 'DEM', 'DEMSTD', 'FLOW', 'FLOWSTD', 'TO', ...
+    'TOSTD', 'SPECIES', 'UNITS','GEO', 'GEOMORPH', 'GEOCOUNT', ...
+    'GEOMORPHCOUNT'};
+
+j = 1;
+for i = [2:15,17,20:21]
+    subplot(5,4,j)
+    j = j+1;
+    scatter(DATA1.([names{i}]), DATA1.SPECIES)
+    ylabel(names(16))
+    xlabel(names(i))
+    [r,p] = corr(DATA1.SPECIES, DATA1.([names{i}]), 'type', 'spearman');
+    title(['Spearman correlation = ' num2str(r) ', pval =' num2str(p)])
+end
+% good correlations at 1% significance level:
+% CURVSTD, SOL, SOLSTD, SLOPE, SLOPESTD, DEMSTD, TO, TOSTD, UNITS, 
+% GEOMORPHCOUNT
+
+% use anova instead of correlation for categorical elements
+[p,tbl,stats] = anova1(DATA1.SPECIES,DATA1.GEO)
+subplot(5,4,j)
+multcompare(stats);
+[p,tbl,stats] = anova1(DATA1.SPECIES,DATA1.GEOMORPH)
+subplot(5,4,j+1)
+multcompare(stats);
+% Barranco's have higher species counts (35 average) than other units
+% Also Trachybasaltic Lava seems to have a higher species mean but we
+% believe this is due to collinearity with geomorphology (trachybasaltic
+% lava was only found in Barranco del Infierno)
+% GEOMORPH seems well correlated
+
+% Check for collinearity:
+corrmat = corrcoef([ID, ASP, ASPSTD, CURV, CURVSTD, SOL, SOLSTD, SLOPE, ...
+    SLOPESTD, DEM, DEMSTD, FLOW, FLOWSTD, TO, TOSTD,  UNITS,  ...
+    GEOCOUNT, GEOMORPHCOUNT]);
+VIF = diag(inv(corrmat))'
+% all LSP's are very collinear! also units and geomorphcount are very
+% collinear.
+
+%% create linear models with all preds using leave-one-out-crossvalidation
+
+% BACKWARD SELECTION:
+mdlb = stepwiselm(DATA, 'linear', 'ResponseVar','UNITS', ...
+    'PredictorVars', [5,6,7,9,11,14,15,18,19,21], 'upper', 'interactions', ...
+    'CategoricalVars',[18,19])
+preds = predict(mdlb, VALI);
+rmse = sqrt(mean((preds - VALI.UNITS).^2))
+% SPECIES ~ 1 + SLOPE + DEMSTD + TO + GEOMORPHCOUNT
+% R^2 = 0.73, RMSE = 10.27
+% UNITS ~ 1 + CURVSTD + GEO + GEOMORPH + GEOMORPHCOUNT + SLOPESTD*TO + DEMSTD*TO
+% R^2 = 0.93, RMSE = 8.59
+
+% FORWARD SELECTION:
+mdlf = stepwiselm(DATA, 'constant', 'ResponseVar','UNITS', ...
+    'PredictorVars', [5,6,7,9,11,14,15,18,19,21], 'upper', 'interactions', ...
+    'CategoricalVars',[18,19])
+preds = predict(mdlf, VALI);
+rmse = sqrt(mean((preds - VALI.UNITS).^2))
+% SPECIES ~ 1 + CURVSTD + GEOMORPHCOUNT
+% R^2 = 0.67, RMSE = 12.52
+% UNITS ~ 1 + SOLSTD + GEOMORPHCOUNT
+% R^2 = 0.56, RMSE = 0.99
+
+% MANUAL BIDIRECTIONAL ELIMINATION
+% predictors were added and removed manually based on their significance
+% and contribution to the model's R-squared
+mdlm = fitlm(DATA,'SPECIES ~ TO + GEOMORPHCOUNT + GEOCOUNT', ...
+    'ResponseVar','SPECIES', 'CategoricalVar',{'GEOMORPH'})
+preds = predict(mdlm, VALI);
+rmse = sqrt(mean((preds - VALI.SPECIES).^2))
+% SPECIES ~ 1 + TO + GEOCOUNT + GEOMORPHCOUNT
+% R^2 = 0.62 , RMSE = 5.91
+
+% FULL MODEL
+mdlfull = fitlm(DATA,'linear', 'PredictorVars', [5,6,7,9,11,14,15,18,19,21], ...
+    'ResponseVar', 'UNITS', 'CategoricalVar',{'GEOMORPH', 'GEO'})
+preds = predict(mdlfull, VALI);
+rmse = sqrt(mean((preds - VALI.UNITS).^2))
+% R^2 = 1 , RMSE = 11.39
+% R^2 = 0.71, RMSE = 1.28
+
+%% LOOCV
+% initiate error log for LOOCV for all models generated so far
+[predsb, predsf, predsm, predsm2, predsm3, predsm4, predsfull] = deal(zeros(length(DATA1.SPECIES),1));
+[errorb, errorf, errorm, errorm2, errorm3, errorm4, errorfull] = deal(zeros(length(DATA1.SPECIES),1));
+
+for i = 1:length(DATA1.SPECIES)
+
+% BACKWARD SELECTION - SPECIES:
+mdlb = fitlm(DATA1, mdlb.Formula, 'Exclude', i);
+predsb(i) = predict(mdlb, DATA1(i,:));
+errorb(i) = predsb(i) - DATA1.SPECIES(i);
+
+% FORWARD SELECTION - SPECIES:
+mdlf = fitlm(DATA1, mdlf.Formula, 'Exclude', i);
+predsf(i) = predict(mdlf, DATA1(i,:));
+errorf(i) = predsf(i) - DATA1.SPECIES(i);
+
+% MANUAL BIDIRECTIONAL ELIMINATION - LSP ONLY - SPECIES:
+mdlm = fitlm(DATA1, ' SPECIES ~ 1 + TO^2 + FLOW', 'Exclude', i);
+predsm(i) = predict(mdlm, DATA1(i,:));
+errorm(i) = predsm(i) - DATA1.SPECIES(i);
+
+% MANUAL BIDIRECTIONAL ELIMINATION - LSP ONLY - UNITS:
+mdlm3 = fitlm(DATA1, ' UNITS ~ 1 + SOLSTD', 'Exclude', i);
+predsm3(i) = predict(mdlm3, DATA1(i,:));
+errorm3(i) = predsm3(i) - DATA1.UNITS(i);
+
+% MANUAL BIDIRECTIONAL ELIMINATION -  UNITS:
+mdlm4 = fitlm(DATA1, ' UNITS ~ 1 + SOLSTD + GEOMORPHCOUNT', 'Exclude', i);
+predsm4(i) = predict(mdlm4, DATA1(i,:));
+errorm4(i) = predsm4(i) - DATA1.UNITS(i);
+
+% MANUAL BIDIRECTIONAL ELIMINATION - SPECIES:
+mdlm2 = fitlm(DATA1, ' SPECIES ~ 1 + TO^2 + FLOW + GEOMORPHCOUNT', ... 
+    'Exclude', i);
+predsm2(i) = predict(mdlm2, DATA1(i,:));
+errorm2(i) = predsm2(i) - DATA1.SPECIES(i);
+
+% FULL MODEL - SPECIES:
+mdlfull = fitlm(DATA1, mdlfull.Formula, 'Exclude', i);
+predsfull(i) = predict(mdlfull, DATA1(i,:));
+errorfull(i) = predsfull(i) - DATA1.SPECIES(i);
+end
+
+% RMSE's
+rmseb = sqrt(mean(errorb.^2)) % 9.12
+rmsef = sqrt(mean(errorf.^2)) % 9.37
+rmsem = sqrt(mean(errorm.^2)) % 7.19
+rmsem2 = sqrt(mean(errorm2.^2)) % 6.99
+rmsem3 = sqrt(mean(errorm3.^2)) % 1.2713
+rmsem4 = sqrt(mean(errorm4.^2)) % 1.1655
+rmsefull = sqrt(mean(errorfull.^2)) % 10.55
+
+% Further analyze best manually selected models:
+lillietest(mdlm.Residuals.Standardized) % normally distrivbuted
+plotDiagnostics(mdlm,'cookd') % leverage effect of barranco del infierno plots
+[p,tbl,stats] = anova1(mdlm.Residuals.Standardized,DATA1.GEOMORPH)
+multcompare(stats) % no correlation of residuals with geological or gemorphological unit
+plotResiduals(mdlm, 'probability') % no obvious trend in residuals except one outlier
+% especially one plot in the barranco del infierno has exceptional species
+% richness and causes high leverage.
+% it is recommended to collect more of such samples from the barranco del
+% infierno.
+
+%% scaling and ranking method
+% scale and rank variables and create GD index
+% scaled based on supposed relationships of the variables with species
+% estimates of authors, requires further research
+% significantly related predictors only
+ScaledData = zeros(size(DATA1(:,[5,6,7,8,9,11,14,15,19,21])));
+idx = [5,6,7,8,9,11,14,15,19,21];
+
+
+for i = [1:8,10]
+    ScaledData(:,i) = (DATA1.([names{idx(i)}])-min(DATA1.([names{idx(i)}]))) ./ ...
+        (max(DATA1.([names{idx(i)}])-min(DATA1.([names{idx(i)}]))));
+end
+
+% in case of supposed negative relation of LSP with Species
+% multiply ranks with -1
+ScaledData(:,2) = (ScaledData(:,2)-1).*-1;
+ScaledData(:,7) = (ScaledData(:,7)-1).*-1;
+ScaledData(:,8) = (ScaledData(:,8)-1).*-1;
+
+% scale GEOMORPH manually based on correlation species & geomorph
+for i = 1:length(DATA1.GEOMORPH)
+    if strcmp(DATA1.GEOMORPH{i},'Lava Flow') == 1
+        ScaledData(i,9) = 0.1;
+    elseif strcmp(DATA1.GEOMORPH{i}, 'Barranco') == 1
+        ScaledData(i,9) = 0.5;
+    elseif strcmp(DATA1.GEOMORPH{i}, 'Gully') == 1
+        ScaledData(i,9) = 0.2;
+    else
+        ScaledData(i,9) = 0.3;
+    end
+end
+
+% calculate GD Index and its correlation to species
+GDIndex = mean(ScaledData,2);
+[r,p] = corr(DATA1.SPECIES, GDIndex)
+% R = 0.79, highly significant
+
+% generate rmse's using polynomial relations between GDI and species
+rmse1 = sqrt(mean((polyval(polyfit(GDIndex,DATA1.SPECIES,1),GDIndex) - DATA1.SPECIES).^2))
+rmse2 = sqrt(mean((polyval(polyfit(GDIndex,DATA1.SPECIES,2),GDIndex) - DATA1.SPECIES).^2))
+rmse3 = sqrt(mean((polyval(polyfit(GDIndex,DATA1.SPECIES,3),GDIndex) - DATA1.SPECIES).^2))
+rmse4 = sqrt(mean((polyval(polyfit(GDIndex,DATA1.SPECIES,4),GDIndex) - DATA1.SPECIES).^2))
+rmse5 = sqrt(mean((polyval(polyfit(GDIndex,DATA1.SPECIES,5),GDIndex) - DATA1.SPECIES).^2))
+rmse6 = sqrt(mean((polyval(polyfit(GDIndex,DATA1.SPECIES,6),GDIndex) - DATA1.SPECIES).^2))
+rmse7 = sqrt(mean((polyval(polyfit(GDIndex,DATA1.SPECIES,7),GDIndex) - DATA1.SPECIES).^2))
+scatter(GDIndex, DATA1.SPECIES)
+xlabel('Geodiversity Index')
+ylabel('Species')
+title('Performance ranking-based GD Index, RMSE = 5.31')
+
+% repeat procedure for prediction of number of GVUs
+[r,p] = corr(DATA1.UNITS, GDIndex)
+% R = 0.73, highly significant
+
+% generate rmse's using polynomial relations between GDI and species
+rmse1 = sqrt(mean((polyval(polyfit(GDIndex,DATA1.UNITS,1),GDIndex) - DATA1.UNITS).^2))
+rmse2 = sqrt(mean((polyval(polyfit(GDIndex,DATA1.UNITS,2),GDIndex) - DATA1.UNITS).^2))
+rmse3 = sqrt(mean((polyval(polyfit(GDIndex,DATA1.UNITS,3),GDIndex) - DATA1.UNITS).^2))
+rmse4 = sqrt(mean((polyval(polyfit(GDIndex,DATA1.UNITS,4),GDIndex) - DATA1.UNITS).^2))
+rmse5 = sqrt(mean((polyval(polyfit(GDIndex,DATA1.UNITS,5),GDIndex) - DATA1.UNITS).^2))
+rmse6 = sqrt(mean((polyval(polyfit(GDIndex,DATA1.UNITS,6),GDIndex) - DATA1.UNITS).^2))
+rmse7 = sqrt(mean((polyval(polyfit(GDIndex,DATA1.UNITS,7),GDIndex) - DATA1.UNITS).^2))
+scatter(GDIndex, DATA1.UNITS, 'bo')
+xlabel('Geodiversity Index')
+ylabel('GVUs')
+title('Performance ranking-based GD Index, RMSE = 0.98')
+
+% Slightly but insignificant increase in performance with higher order 
+% polynomials, lowest rmse is 5.31 and 0.98 for species and units 
+% respectively for 7th-order polynomial. 
+% But from scatterplot it already appears that a linear relation seems to 
+% exist and that use of higher order polynomials is not justified
+
+
+%% use predictors selected in multiple linear regression for upscaling of the species prediction
+% here only the models using the LSPs are upscaled due to lack of
+% continuous geomorphological data.
+
+% download exported input data of whole area fishnet
+[ID, FID, FLOW, TO] = textread('Data_Analysis\UpscalingData.csv', ...
+    '%u%u%f%f', 'delimiter', ';', ...
+    'headerlines', 1);
+
+PREDDATA = zeros(length(TO),20);
+PREDDATA(:,12) = FLOW;
+PREDDATA(:,14) = TO;
+
+% predict species count based on best performing, purely-LSP dependent
+% regression model and input data
+SPECIESPRED = predict(mdlm, PREDDATA);
+% Copy manually to ArcMap attribute table using editor tool in ArcMap
+
+% download exported input data of whole area fishnet
+[ID, FID, FLOW, TO, PREDSPEC, SOLSTD] = textread('Data_Analysis\UpscalingData2.txt', ...
+    '%u%u%f%f%f%f', 'delimiter', ';', ...
+    'headerlines', 1);
+
+PREDDATA = zeros(length(SOLSTD),20);
+PREDDATA(:,7) = SOLSTD;
+
+% predict unit count based on best performing, purely-LSP dependent
+% regression model and input data
+UNITSPRED = predict(mdlm3, PREDDATA);
+% Copy manually to ArcMap attribute table using editor tool in ArcMap
