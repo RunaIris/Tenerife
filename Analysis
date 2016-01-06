@@ -37,7 +37,7 @@ VALI = DATA1([3,10,26],:); % ONE IN EACH AREA
 DATA = DATA1([1:2,4:9,11:25,27,28],:);
 
 
-%% exploratory statistics
+%% exploratory statistics - to be done for DATA1.SPECIES as well as DATA1.UNITS
 
 %identify high correlations with species number / GVU number
 names = {'ID', 'ASP', 'ASPSTD', 'CURV', 'CURVSTD', 'SOL', 'SOLSTD', ...
@@ -81,7 +81,7 @@ VIF = diag(inv(corrmat))'
 % collinear.
 
 %% create linear models with all preds using leave-one-out-crossvalidation
-
+- to be done for DATA1.SPECIES as well as DATA1.UNITS
 % BACKWARD SELECTION:
 mdlb = stepwiselm(DATA, 'linear', 'ResponseVar','UNITS', ...
     'PredictorVars', [5,6,7,9,11,14,15,18,19,21], 'upper', 'interactions', ...
@@ -122,7 +122,7 @@ rmse = sqrt(mean((preds - VALI.UNITS).^2))
 % R^2 = 1 , RMSE = 11.39
 % R^2 = 0.71, RMSE = 1.28
 
-%% LOOCV
+%% LOOCV - to be done for DATA1.SPECIES as well as DATA1.UNITS
 % initiate error log for LOOCV for all models generated so far
 [predsb, predsf, predsm, predsm2, predsm3, predsm4, predsfull] = deal(zeros(length(DATA1.SPECIES),1));
 [errorb, errorf, errorm, errorm2, errorm3, errorm4, errorfull] = deal(zeros(length(DATA1.SPECIES),1));
@@ -200,13 +200,13 @@ for i = [1:8,10]
         (max(DATA1.([names{idx(i)}])-min(DATA1.([names{idx(i)}]))));
 end
 
-% in case of supposed negative relation of LSP with Species
+% in case of supposed negative relation of LSP with Species/Units
 % multiply ranks with -1
 ScaledData(:,2) = (ScaledData(:,2)-1).*-1;
 ScaledData(:,7) = (ScaledData(:,7)-1).*-1;
 ScaledData(:,8) = (ScaledData(:,8)-1).*-1;
 
-% scale GEOMORPH manually based on correlation species & geomorph
+% scale GEOMORPH manually based on correlation species/units & geomorph
 for i = 1:length(DATA1.GEOMORPH)
     if strcmp(DATA1.GEOMORPH{i},'Lava Flow') == 1
         ScaledData(i,9) = 0.1;
@@ -232,6 +232,7 @@ rmse4 = sqrt(mean((polyval(polyfit(GDIndex,DATA1.SPECIES,4),GDIndex) - DATA1.SPE
 rmse5 = sqrt(mean((polyval(polyfit(GDIndex,DATA1.SPECIES,5),GDIndex) - DATA1.SPECIES).^2))
 rmse6 = sqrt(mean((polyval(polyfit(GDIndex,DATA1.SPECIES,6),GDIndex) - DATA1.SPECIES).^2))
 rmse7 = sqrt(mean((polyval(polyfit(GDIndex,DATA1.SPECIES,7),GDIndex) - DATA1.SPECIES).^2))
+figure; 
 scatter(GDIndex, DATA1.SPECIES)
 xlabel('Geodiversity Index')
 ylabel('Species')
@@ -249,18 +250,19 @@ rmse4 = sqrt(mean((polyval(polyfit(GDIndex,DATA1.UNITS,4),GDIndex) - DATA1.UNITS
 rmse5 = sqrt(mean((polyval(polyfit(GDIndex,DATA1.UNITS,5),GDIndex) - DATA1.UNITS).^2))
 rmse6 = sqrt(mean((polyval(polyfit(GDIndex,DATA1.UNITS,6),GDIndex) - DATA1.UNITS).^2))
 rmse7 = sqrt(mean((polyval(polyfit(GDIndex,DATA1.UNITS,7),GDIndex) - DATA1.UNITS).^2))
+figure; 
 scatter(GDIndex, DATA1.UNITS, 'bo')
 xlabel('Geodiversity Index')
 ylabel('GVUs')
 title('Performance ranking-based GD Index, RMSE = 0.98')
 
-% Slightly but insignificant increase in performance with higher order 
+% Slight but insignificant increase in performance with higher order 
 % polynomials, lowest rmse is 5.31 and 0.98 for species and units 
 % respectively for 7th-order polynomial. 
 % But from scatterplot it already appears that a linear relation seems to 
 % exist and that use of higher order polynomials is not justified
 
-%% out-commented, since data for upscaling is not on this repository
+%% out-commented, since data for upscaling is not in this repository
 %%% use predictors selected in multiple linear regression for upscaling of the species prediction
 %% here only the models using the LSPs are upscaled due to lack of
 %% continuous geomorphological data.
