@@ -260,34 +260,34 @@ title('Performance ranking-based GD Index, RMSE = 0.98')
 % But from scatterplot it already appears that a linear relation seems to 
 % exist and that use of higher order polynomials is not justified
 
+%% out-commented, since data for upscaling is not on this repository
+%%% use predictors selected in multiple linear regression for upscaling of the species prediction
+%% here only the models using the LSPs are upscaled due to lack of
+%% continuous geomorphological data.
 
-%% use predictors selected in multiple linear regression for upscaling of the species prediction
-% here only the models using the LSPs are upscaled due to lack of
-% continuous geomorphological data.
+%% download exported input data of whole area fishnet
+%[ID, FID, FLOW, TO] = textread('Data_Analysis\UpscalingData.csv', ...
+%    '%u%u%f%f', 'delimiter', ';', ...
+%    'headerlines', 1);
 
-% download exported input data of whole area fishnet
-[ID, FID, FLOW, TO] = textread('Data_Analysis\UpscalingData.csv', ...
-    '%u%u%f%f', 'delimiter', ';', ...
-    'headerlines', 1);
+%PREDDATA = zeros(length(TO),20);
+%PREDDATA(:,12) = FLOW;
+%PREDDATA(:,14) = TO;
 
-PREDDATA = zeros(length(TO),20);
-PREDDATA(:,12) = FLOW;
-PREDDATA(:,14) = TO;
+%% predict species count based on best performing, purely-LSP dependent
+%% regression model and input data
+%SPECIESPRED = predict(mdlm, PREDDATA);
+%% Copy manually to ArcMap attribute table using editor tool in ArcMap
 
-% predict species count based on best performing, purely-LSP dependent
-% regression model and input data
-SPECIESPRED = predict(mdlm, PREDDATA);
-% Copy manually to ArcMap attribute table using editor tool in ArcMap
+%% download exported input data of whole area fishnet
+%[ID, FID, FLOW, TO, PREDSPEC, SOLSTD] = textread('Data_Analysis\UpscalingData2.txt', ...
+%    '%u%u%f%f%f%f', 'delimiter', ';', ...
+%    'headerlines', 1);
 
-% download exported input data of whole area fishnet
-[ID, FID, FLOW, TO, PREDSPEC, SOLSTD] = textread('Data_Analysis\UpscalingData2.txt', ...
-    '%u%u%f%f%f%f', 'delimiter', ';', ...
-    'headerlines', 1);
+%PREDDATA = zeros(length(SOLSTD),20);
+%PREDDATA(:,7) = SOLSTD;
 
-PREDDATA = zeros(length(SOLSTD),20);
-PREDDATA(:,7) = SOLSTD;
-
-% predict unit count based on best performing, purely-LSP dependent
-% regression model and input data
-UNITSPRED = predict(mdlm3, PREDDATA);
-% Copy manually to ArcMap attribute table using editor tool in ArcMap
+%% predict unit count based on best performing, purely-LSP dependent
+%% regression model and input data
+%UNITSPRED = predict(mdlm3, PREDDATA);
+%% Copy manually to ArcMap attribute table using editor tool in ArcMap
