@@ -31,6 +31,8 @@ This repository contains a file called "data", in .txt format. It contains data 
 - Standard Deviation of Curvature per cell
 
 **Topographic Openness**	LSP. -	Mean of above-surface zenith along each azimuth up to specified radius. [degrees]	derived from DEM. Calculated using a script from Anders et al., (2011)., based on Yokoyama et al. (2002).	Calculated on 25m radius. Average and standar deviation per fishnet cell.
+- Mean Topographic Openness per cell
+- Standard Deviation of Topographic Openness per cell
 
 **Flow Accumulation**	LSP.	Accumulated number of all cells flowing into each downslope cell in the output raster [nr. of cells]	derived from DEM. Calculated with the ArcGIS Flow Direction and Flow Accumulation tools from the hydrological toolbox. Average and standar deviation per fishnet cell.
 - Mean Flow Accumulation per cell
